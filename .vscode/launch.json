@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Cache_Simulate",
+            "request": "launch",
+            "mainClass": "Cache_Simulate",
+            "args": [
+                "machineCode.mc",
+                "4",
+                "2",
+                "1"
+            ]
+        }
+    ]
+}

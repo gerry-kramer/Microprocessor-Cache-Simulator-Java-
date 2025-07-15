@@ -1,0 +1,699 @@
+// Gerard Kramer
+// CDA 3100 Section 3
+// Assignment 2 -- Cache_Simulate.java
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+public class Cache_Simulate {
+
+    static final int NUMMEMORY = 65536;
+    static final int NUMREGS = 8;
+    static final int MAXLENGTH = 1000;
+
+    static class State {
+        int pc;
+        int[] mem = new int[NUMMEMORY];
+        int[] reg = new int[NUMREGS];
+        int numMemory;
+    }
+
+    public static void printState(State state) {
+        System.out.println("\n@@@\nstate:");
+        System.out.println("\tpc " + state.pc);
+        System.out.println("\tmemory:");
+        for (int i = 0; i < state.numMemory; i++) {
+            System.out.println("\t\tmem[ " + i + " ] " + state.mem[i]);
+        }
+        System.out.println("\tregisters:");
+        for (int i = 0; i < NUMREGS; i++) {
+            System.out.println("\t\treg[ " + i + " ] " + state.reg[i]);
+        }
+        System.out.println("end state");
+    }
+    
+    public static int convertNum(int num) {
+        /* convert a 16-bit number into a 32-bit integer */
+        if ((num & (1 << 15)) != 0) {
+            num -= (1 << 16);
+        }
+        return num;
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+
+    public static int countLines(String filename) { // Count the number of lines in the file specified
+        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
+            int lines = 0;
+            while (reader.readLine() != null) {
+                lines++;
+            }
+            return lines;
+        } catch (IOException e) {
+            System.out.println("Error counting lines in the file: " + e.getMessage());
+            return 0; // Return 0 in case of error
+        }
+    }
+    
+    public static int[] readMachineCode(String filename) {
+        BufferedReader reader = null;
+        try {
+            reader = new BufferedReader(new FileReader(filename));
+            // call countLines to determine the size of the machineCode array
+            int numInstructions = countLines(filename);
+            int[] machineCode = new int[numInstructions];
+            String line;
+            int index = 0;
+            while ((line = reader.readLine()) != null && index < numInstructions) {
+                machineCode[index] = Integer.parseInt(line.trim());
+                index++;
+            }
+            return machineCode;
+        } catch (IOException e) {
+            System.out.println("Error reading machine code file: " + e.getMessage());
+            return new int[0]; // Return empty array in case of error
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    System.out.println("Error closing BufferedReader: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+
+
+
+
+    public static void main(String[] args) {
+        
+        boolean debugMode = true;
+        State state = new State();
+        
+        if (debugMode) {
+            System.out.println(args[0]);
+        }
+        
+        if (args.length != 4) {
+            System.out.println("Usage: java Cache_Simulate <filename>.mc blockSizeInWords numberOfSets blocksPerSet");
+            return;
+        }
+
+        // Read machine code from the file specified in the command line argument
+        String filename = args[0];
+        int[] machineCode = readMachineCode(filename);
+        
+        
+        
+        int numInstructions = machineCode.length;
+        state.numMemory = numInstructions;
+        System.arraycopy(machineCode, 0, state.mem, 0, numInstructions);
+
+        int blockSizeInWords;
+        int numberOfSets;
+        int blocksPerSet;
+        try {
+            blockSizeInWords = Integer.parseInt(args[1]);
+            numberOfSets = Integer.parseInt(args[2]);
+            blocksPerSet = Integer.parseInt(args[3]);
+            
+        } catch (NumberFormatException e) {
+            System.out.println("Error parsing cache parameters: " + e.getMessage());
+            return;
+        }
+        Cache cache = new Cache(blockSizeInWords, numberOfSets, blocksPerSet, state.mem);
+
+        // Initialize other registers and program counter
+        state.pc = 0;
+        for (int i = 0; i < NUMREGS; i++) {
+            state.reg[i] = 0;
+        }
+        
+        //printState(state);
+        int numTimes = 0;
+        if (debugMode)
+            System.out.println("state.numMemory = " + state.numMemory);
+    
+        System.out.println("\n");
+        // Simulation logic
+        while (state.pc < state.numMemory) {
+            if (debugMode)
+                System.out.println("Executing instruction at address " + state.pc);
+            // Fetch instruction at current pc
+            int instruction = cache.readFromCache(state.pc);
+            String TBSI = Integer.toBinaryString(instruction);
+            if (debugMode)
+                System.out.println("Executing instruction: " + instruction);
+            // Extract opcode and fields
+            int opcode = (instruction >> 22) & 0x7;
+            int regA = (instruction >> 19) & 0x7;
+            int regB = (instruction >> 16) & 0x7;
+            int destReg = (instruction >> 0) & 0x7;
+            int offset = instruction & 0xFFFF;
+            if (debugMode) {
+                System.out.println("opcode = " + opcode);
+                System.out.println("regA = " + regA);
+                System.out.println("regB = " + regB);
+                System.out.println("destReg = " + destReg);
+                System.out.println("offset = " + offset);
+            }
+            int address;
+            switch (opcode) {
+                case 0: // ADD (Add) - R-type format
+                    if (debugMode)
+                        System.out.println("case " + opcode + ": ADD");
+                    state.reg[destReg] = state.reg[regA] + state.reg[regB];
+                    break;
+                case 1: // NAND (NAND) - R-type format
+                    if (debugMode)
+                        System.out.println("case 1: NAND");
+                    state.reg[destReg] = ~(state.reg[regA] & state.reg[regB]);
+                    break;
+                case 2: // LW (Load Word) - I-type format
+                    // Calculate the memory address by adding offset with the contents of regA
+                    if (debugMode)    
+                        System.out.println("case 2: LW");
+                    address = state.reg[regA] + convertNum(offset);
+                    int loadedValue = cache.readFromCache(address);
+                    state.reg[regB] = loadedValue;
+                    break;
+                case 3: // SW (Store Word) - I-type format
+                    // Calculate the memory address by adding offset with the contents of regA
+                    if (debugMode) {
+                        System.out.println("case 3: SW");
+                    }
+                    address = state.reg[regA] + convertNum(offset);
+                    // Store the value from regB into memory
+                    //state.mem[address] = state.reg[regB]; //WRONG
+                    //update cache
+                    int setIndex = cache.getSetIndex(address);
+                    int blockIndex = cache.findBlockIndexInSet(address, setIndex);
+                    cache.accessBlock(setIndex, blockIndex);
+                    if (debugMode) {
+                        System.out.println("wordsArr BEFORE updating: ");
+                        for (int i = 0; i < blockSizeInWords; i++) {
+                            System.out.println(cache.setsArr[setIndex].blocksArr[blockIndex].wordsArr[i]);
+                        }
+                    }
+                    cache.setsArr[setIndex].blocksArr[blockIndex].wordsArr[address % cache.getBlockSizeInWords()] = state.reg[regB];
+                    cache.setsArr[setIndex].blocksArr[blockIndex].setIsDirty(true);
+                    if (debugMode) {
+                        System.out.println("address: " + address);
+                        System.out.println("setIndex: " + setIndex);
+                        System.out.println("blockIndex: " + blockIndex);
+                        System.out.println("wordsArr AFTER updating: ");
+                        for (int i = 0; i < blockSizeInWords; i++) {
+                            System.out.println(cache.setsArr[setIndex].blocksArr[blockIndex].wordsArr[i]);
+                        }
+                    }
+                    break;
+                case 4: // BEQ (Branch Equal) - I-type format
+                    // If the contents of regA and regB are the same, branch to the specified address
+                    if (debugMode)
+                        System.out.println("case 4: BEQ");
+                    if (state.reg[regA] == state.reg[regB]) {
+                        // Calculate the branch address: PC + 1 (already covered) + offset
+                        state.pc += convertNum(offset);
+                    }
+                    break;
+                case 6: // HALT (Halt) - O-type format
+                    // Increment the PC, then halt the machine
+                    if (debugMode)
+                        System.out.println("case 6: HALT");
+                    state.pc += 1;
+                    //printState(state);
+                    return; // Exit the simulation loop, effectively halting the machine
+                case 7: // NOOP (No Operation) - O-type format
+                    // Do nothing, simply increment the PC
+                    if (debugMode)
+                        System.out.println("case 7: NOOP");
+                    break;
+                default:
+                    if (debugMode)
+                        System.out.println("default case: present error");
+                    System.out.println("Error: Unknown opcode " + opcode);
+                    break;
+            }
+
+            // Update program counter for the next instruction
+            state.pc += 1;
+            //printState(state);
+            if (debugMode) {
+                System.out.println("state.numMemory = " + state.numMemory);
+                System.out.println("state.pc = " + state.pc);
+            }
+            numTimes++;
+            
+            if (debugMode)
+                System.out.println("number of times: " + numTimes + "\n");
+        }
+
+        // Print the final state of the simulated machine
+        //printState(state);
+    }
+}
+
+
+
+
+class Cache {
+
+    private int blockSizeInWords;
+    private int numberOfSets;
+    private int blocksPerSet;
+    private int globalAccessNumber;
+    public int[] memory;
+    private static final int MAX_CACHE_BLOCKS = 256;
+    public boolean debugMode2;
+
+    private int B;
+    private int W;
+    private int S;
+
+    public Set[] setsArr;
+
+    public enum ActionType {
+        CACHE_TO_PROCESSOR,
+        PROCESSOR_TO_CACHE,
+        MEMORY_TO_CACHE,
+        CACHE_TO_MEMORY,
+        CACHE_TO_NOWHERE
+    }
+
+    public Cache(int size, int sets, int blocks, int[] memory) {
+        blockSizeInWords = size;
+        numberOfSets = sets;
+        blocksPerSet = blocks;
+        globalAccessNumber = 1;
+        this.memory = memory;
+        debugMode2 = true;
+
+        B = (int) (Math.log(blocksPerSet) / Math.log(2));
+        W = (int) (Math.log(blockSizeInWords) / Math.log(2));
+        S = (int) (Math.log(numberOfSets) / Math.log(2));
+
+        // end program if not a power of 2
+
+        if (powerOfTwo(blockSizeInWords) == false || powerOfTwo(numberOfSets) == false || powerOfTwo(blocksPerSet) == false) {
+            System.out.println("Error: blockSizeInWords, numberOfSets, and blocksPerSet all must be powers of 2");
+            System.exit(1);
+        }
+
+        // end program if too many cache blocks
+
+        if (numberOfSets * blocksPerSet > MAX_CACHE_BLOCKS) {
+            System.out.println("Error: too many cache blocks");
+            System.exit(1);
+        }
+
+        // initialize cache array
+
+        setsArr = new Set[numberOfSets];
+
+        for (int i = 0; i < numberOfSets; i++) {
+            setsArr[i] = new Set(blocksPerSet, i);
+            for (int j = 0; j < blocksPerSet; j++) {
+                setsArr[i].blocksArr[j] = new Block(blockSizeInWords);
+            }
+        }
+
+    }
+
+
+    public void accessBlock(int setIndex, int blockIndex) {
+        Set set = setsArr[setIndex];
+        Block block = set.blocksArr[blockIndex];
+        
+        // Update the block's access number
+        block.setBlockAccessNumber(globalAccessNumber);
+
+        // Increment the global access number
+        globalAccessNumber++;
+    }
+
+    public int getSetIndex(int address) {
+        // Calculate the set index based on the rightmost S bits after shifting right (W + B) bits
+        int shiftAmount = W + B;
+        int setIndexMask = (1 << S) - 1;  // Mask with S bits set to 1
+
+        return (address >> shiftAmount) & setIndexMask;
+    }
+
+    public static boolean powerOfTwo(int number) { // check if an int is a power of 2
+        return (number > 0) && ((number & (number - 1)) == 0);
+    }
+
+    // getters
+
+    public int getBlockSizeInWords() {
+        return blockSizeInWords;
+    }
+    public int getNumberOfSets() {
+        return numberOfSets;
+    }
+    public int getBlocksPerSet() {
+        return blocksPerSet;
+    }
+
+    public int getGlobalAccessNumber() {
+        return globalAccessNumber;
+    }
+
+    public int getB() {
+        return B;
+    }
+    public int getS() {
+        return S;
+    }
+    public int getW() {
+        return W;
+    }
+    //setters
+    public void setB(int b) {
+        B = b;
+    }
+    public void setS(int s) {
+        S = s;
+    }
+    public void setW(int w) {
+        W = w;
+    }
+
+    public void setGlobalAccessNumber(int s) {
+        globalAccessNumber = s;
+    }
+
+    public void logCacheAction(int address, int size, ActionType type) {
+        System.out.printf("@@@ transferring word [%d-%d] ", address, address + size - 1);
+        switch (type) {
+            case CACHE_TO_PROCESSOR:
+                System.out.println("from the cache to the processor");
+                break;
+            case PROCESSOR_TO_CACHE:
+                System.out.println("from the processor to the cache");
+                break;
+            case MEMORY_TO_CACHE:
+                System.out.println("from the memory to the cache");
+                break;
+            case CACHE_TO_MEMORY:
+                System.out.println("from the cache to the memory");
+                break;
+            case CACHE_TO_NOWHERE:
+                System.out.println("from the cache to nowhere");
+                break;
+        }
+    }
+
+
+
+
+    public boolean cacheIsHit;
+
+
+    
+
+
+
+
+    public int readFromCache(int readAddress) {
+        if (debugMode2)
+            System.out.println("Memory Address: " + readAddress);
+        int setIndex = getSetIndex(readAddress);
+        int blockIndex = findBlockIndexInSet(readAddress, setIndex);
+        Block blockToRead = setsArr[setIndex].blocksArr[blockIndex];
+        if (debugMode2) {
+            System.out.println("Set Index: " + setIndex);
+            System.out.println("Block Index: " + blockIndex);
+        }
+        if (blockToRead.getIsMappedToAddress() == true && blockToRead.getMappedAddress() == readAddress) { // Cache hit
+            cacheIsHit = true;
+            //DELETE LATER
+            if (debugMode2) {
+                System.out.println("Cache Hit: Value read from cache = " + setsArr[setIndex].blocksArr[blockIndex].wordsArr[readAddress % blockSizeInWords]);
+                System.out.println("Cache Set Content:");
+                for (Block block : setsArr[setIndex].blocksArr) {
+                    System.out.print("[ ");
+                    for (int word : block.wordsArr) {
+                        System.out.print(word + " ");
+                    }
+                    System.out.println("]");
+                }
+            }
+            //DELETE LATER
+            accessBlock(setIndex, blockIndex);
+        } else { // Cache miss
+            //DELETE LATER
+            cacheIsHit = false;
+            if (debugMode2) {
+                System.out.println("Cache Miss: Fetching block from memory... (Address: " + readAddress + ")");
+            }
+            //DELETE LATER
+            //blockIndex = findBlockToReplace(setIndex); // Find block to replace
+            fetchBlockFromMemory(readAddress, setIndex, blockIndex);
+        }
+        logCacheAction(readAddress, 1, ActionType.CACHE_TO_PROCESSOR);
+        int wordOffset = readAddress % blockSizeInWords;
+        int readInstruction = setsArr[setIndex].blocksArr[blockIndex].wordsArr[wordOffset];
+        //int readInstruction = blockToRead.wordsArr[wordOffset];
+        
+        return readInstruction;
+    }
+
+    private int findBlockToReplace(int setIndex) {
+        return setsArr[setIndex].findBlockToReplace(this);
+    }
+
+    public int findBlockIndexInSet(int address, int setIndex) {
+        return setsArr[setIndex].findBlockIndexInSet(address, this);
+    }
+
+    private void fetchBlockFromMemory(int readaddress2, int setIndex, int blockIndex) {
+        Block fetchedBlock = fetchBlockFromMemoryHelper(blockIndex * blockSizeInWords, memory);
+        updateCache(setIndex, blockIndex, fetchedBlock, readaddress2);
+        logCacheAction(readaddress2, blockSizeInWords, ActionType.MEMORY_TO_CACHE);
+    }
+
+    private Block fetchBlockFromMemoryHelper(int blockStartAddress, int[] memory) {
+        // Assuming there's a State object available, use it to fetch the block from memory
+        if (debugMode2) {
+            System.out.println("Fetching block from memory (Block Start Address: " + blockStartAddress + ")");
+        }
+        Block fetchedBlock = new Block(blockSizeInWords);
+
+        for (int i = 0; i < blockSizeInWords; i++) {
+            fetchedBlock.wordsArr[i] = memory[blockStartAddress + i];
+        }
+        
+        if (debugMode2) {
+            System.out.println("Fetched Block Content:");
+            for (int word : fetchedBlock.wordsArr) {
+                System.out.print(word + " ");
+            }
+            System.out.println();
+        }
+
+        return fetchedBlock;
+    }
+
+
+
+    private void updateCache(int setIndex, int blockIndex, Block fetchedBlock, int address) {
+        // Update the cache with the fetched block
+        Set set = setsArr[setIndex];
+        set.blocksArr[blockIndex] = fetchedBlock;
+        set.blocksArr[blockIndex].setIsMappedToAddress(true);
+        set.blocksArr[blockIndex].setMappedAddress(address);
+        accessBlock(setIndex, blockIndex);
+    }
+
+
+
+
+
+
+
+
+
+
+}
+
+class Set {
+
+    private int blocksPerSet;
+    private int setIndex;
+    public Block[] blocksArr;
+
+    public Set(int blocksNum, int index) {
+        blocksPerSet = blocksNum;
+        blocksArr = new Block[blocksPerSet];
+        setIndex = index;
+    }
+
+    public int getBlocksPerSet() {
+        return blocksPerSet;
+    }
+    public int getSetIndex() {
+        return setIndex;
+    }
+
+    public Block getLeastRecentlyUsedBlock() {
+        Block leastRecentlyUsed = blocksArr[0];
+
+        for (Block block : blocksArr) {
+            if (block.getBlockAccessNumber() == 0) {
+                // Found a block with access number 0, use this one
+                leastRecentlyUsed = block;
+                break;
+            } else if (block.getBlockAccessNumber() < leastRecentlyUsed.getBlockAccessNumber()) {
+                // Found a block with a lower access number, update leastRecentlyUsed
+                leastRecentlyUsed = block;
+            }
+        }
+
+        return leastRecentlyUsed;
+    }
+
+    public boolean isAddressInSet(int address) {
+        for (Block block : blocksArr) {
+            if (block.getIsMappedToAddress() && block.getMappedAddress() == address) {
+                return true; // Address matches a mapped block in the set
+            }
+        }
+        return false; // Address does not match any mapped block in the set
+    }
+
+    public int findBlockIndexInSet(int address3, Cache cache) {
+        for (int i = 0; i < blocksArr.length; i++) {
+            if (blocksArr[i].getIsMappedToAddress() && blocksArr[i].getMappedAddress() == address3) { // hit
+                return i; // Found a block with the specified address
+            }
+        }
+        Block leastRecentlyUsedBlock = getLeastRecentlyUsedBlock();
+        
+        for (int i = 0; i < blocksArr.length; i++) {
+            if (blocksArr[i] == leastRecentlyUsedBlock) {
+                
+                if (leastRecentlyUsedBlock.getIsDirty()) {
+                    // Write back to memory if the block is dirty
+                    int evictionAddress = leastRecentlyUsedBlock.getMappedAddress();
+                    int evictionBlockStartAddress = evictionAddress - (evictionAddress % cache.getBlockSizeInWords());
+                    for (int j = 0; j < cache.getBlockSizeInWords(); j++) {
+                        cache.memory[evictionBlockStartAddress + j] = leastRecentlyUsedBlock.wordsArr[j];
+                    }
+                    cache.logCacheAction(evictionAddress, cache.getBlockSizeInWords(), Cache.ActionType.CACHE_TO_MEMORY);
+                }
+
+                leastRecentlyUsedBlock.setIsMappedToAddress(false);
+                leastRecentlyUsedBlock.setMappedAddress(-1);
+                int debugAddr = leastRecentlyUsedBlock.getMappedAddress();
+                leastRecentlyUsedBlock.setIsDirty(false);
+
+                return i;
+
+            }
+        }
+
+        return -1; // Address not found in any block in the set
+    }
+
+    public int findBlockToReplace(Cache cache) {
+        Block leastRecentlyUsed = blocksArr[0];
+        int leastRecentlyUsedIndex = 0;
+
+        for (int i = 1; i < blocksPerSet; i++) {
+            Block currentBlock = blocksArr[i];
+            if (currentBlock.getBlockAccessNumber() < leastRecentlyUsed.getBlockAccessNumber()) {
+                leastRecentlyUsed = currentBlock;
+                leastRecentlyUsedIndex = i;
+            }
+        }
+
+        Block leastRecentlyUsedBlock = blocksArr[leastRecentlyUsedIndex];
+        
+        // write to memory if dirty
+
+        if (leastRecentlyUsedBlock.getIsDirty()) {
+                // Write back to memory if the block is dirty
+                int evictionAddress = leastRecentlyUsedBlock.getMappedAddress();
+                int evictionBlockStartAddress = evictionAddress - (evictionAddress % cache.getBlockSizeInWords());
+                for (int j = 0; j < cache.getBlockSizeInWords(); j++) {
+                    cache.memory[evictionBlockStartAddress + j] = leastRecentlyUsedBlock.wordsArr[j];
+                }
+                cache.logCacheAction(evictionAddress, cache.getBlockSizeInWords(), Cache.ActionType.CACHE_TO_MEMORY);
+            }
+
+        return leastRecentlyUsedIndex;
+    }
+}
+
+class Block {
+
+    private int blockSizeInWords;
+    private int blockAccessNumber;
+    public int[] wordsArr;
+
+    private boolean isDirty;
+    private boolean isMappedToAddress;
+    private int mappedAddress;
+
+    public Block(int sizeInWords) {
+        blockSizeInWords = sizeInWords;
+        wordsArr = new int[blockSizeInWords];
+        blockAccessNumber = 0;
+        isDirty = false;
+        mappedAddress = -1;
+        isMappedToAddress = false;
+    }
+
+    public int getBlockSizeInWords() {
+        return blockSizeInWords;
+    }
+
+    public boolean getIsDirty() {
+        return isDirty;
+    }
+
+    public boolean getIsClean() {
+        return !isDirty;
+    }
+
+    public boolean getIsMappedToAddress() {
+        return isMappedToAddress;
+    }
+
+    public int getMappedAddress() {
+        return mappedAddress;
+    }
+    public int getBlockAccessNumber() {
+        return blockAccessNumber;
+    }
+    public void setIsDirty(boolean boo) {
+        isDirty = boo;
+    }
+
+    public void setIsClean(boolean boo) {
+        isDirty = !boo;
+    }
+    public void setIsMappedToAddress(boolean map) {
+        isMappedToAddress = map;
+    }
+    public void setMappedAddress(int addr) {
+        mappedAddress = addr;
+    }
+    public void setBlockAccessNumber(int an) {
+        blockAccessNumber = an;
+    }
+}
+
+

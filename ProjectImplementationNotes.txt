@@ -1,0 +1,185 @@
+Block size in words
+Blocks per set
+Number of sets
+
+
+Scenario A
+------------------------------
+Block size in words = 1
+Blocks per set = 1
+Number of sets = 1  (2 ^ S where S = 0)
+
+1 Set, 1 Block per set, 1 Word Per Block
+
+No matter what address is used, it all goes into the one block
+
+
+
+Scenario B
+------------------------------
+Block size in words = 1
+Blocks per set = 1
+Number of sets = 2  (2 ^ S where S = 1)
+
+
+2 ("10") Sets, 1 ("01") Block per set, 1 Word Per Block
+
+Sets go from 0 to 1
+
+Address 000 -> Set 00
+Address 001 -> Set 01
+Address 010 -> Set 00
+Address 011 -> Set 01
+Address 100 -> Set 00
+Address 101 -> Set 01
+Address 000 -> Set 00
+
+If Blocks per set = 1, and Words per Block = 1, then the Set is determined by the rightmost bit (if there are two sets)
+
+
+
+
+
+
+
+
+Scenario C
+------------------------------
+Block size in words = 1
+Blocks per set = 1
+Number of sets = 4  (2 ^ S where S = 2)
+
+
+4 ("100") Sets, 1 ("01") Block per set, 1 Word Per Block
+
+Sets go from 0 to 1
+
+Address 000 -> Set 00
+Address 001 -> Set 01
+Address 010 -> Set 10
+Address 011 -> Set 11
+Address 100 -> Set 00
+Address 101 -> Set 01
+Address 110 -> Set 10
+Address 111 -> Set 11
+
+If Blocks per set = 1, and Words per Block = 1, then the Set is determined by the rightmost two bits (if there are four sets)
+
+
+If Blocks per set = 1, and Words per Block = 1, a number of Sets = 2 ^ S, then Set is determined by the rightmost S bits
+
+
+
+
+
+
+
+
+
+
+Scenario D
+------------------------------
+Block size in words = 2  (2 ^ W, where W = 1)
+Blocks per set = 1
+Number of sets = 2  (2 ^ S where S = 1)
+
+
+2 ("10") Sets, 1 ("01") Block per set, 2 Word Per Block
+
+Sets go from 0 to 1
+
+Address 000 -> Set 00
+Address 001 -> Set 00
+Address 010 -> Set 01
+Address 011 -> Set 01
+Address 100 -> Set 00
+Address 101 -> Set 00
+Address 110 -> Set 01
+Address 111 -> Set 01
+
+
+If Blocks per set = 1
+and Words per Block = 2 ^ W
+and number of Sets = 2 ^ S, then Set is determined by the rightmost S bits AFTER shifting right W bits
+
+
+
+
+
+Scenario E
+------------------------------
+Block size in words = 2  (2 ^ W, where W = 1)
+Blocks per set = 2  (2 ^ B, where B = 1)
+Number of sets = 2  (2 ^ S where S = 1)
+
+
+Address 000 -> Set 00
+Address 001 -> Set 00
+Address 010 -> Set 00
+Address 011 -> Set 00
+Address 100 -> Set 01
+Address 101 -> Set 01
+Address 110 -> Set 01
+Address 111 -> Set 01
+
+
+If Blocks per set = 2 ^ B
+and Words per Block = 2 ^ W
+and number of Sets = 2 ^ S, then Set is determined by the rightmost S bits AFTER shifting right (W + B) bits
+
+
+
+After determining set, determine correct block (least recently used) by looping over all blocks in the set:
+- If find an address that matches, success
+- If not, evict least recently used block
+- If multiple blocks have never been used, store in the lowest index block
+
+
+
+
+Array of Set objects
+
+Each Set contains
+- An array of block objects
+- Set index???
+
+
+
+Block object:
+- Array of ints (words)
+- Boolean dirty
+- Boolean to indicate whether it is mapped to an address
+- int(?) to represent the address it is mapped to
+- "accessNumberForThisBlock"
+
+
+
+Cache could contain an "globalAccessNumber" (initialize this to "1")
+
+
+Every time you access a block, do the following:
+= accessNumberForThisBlock = globalAccessNumber
+= globalAccessNumber++
+
+When looking for the least recently used:
+- Loop over all blocks in the set, starting from the beginning
+- If "accessNumberForThisBlock" == 0, use this one.
+- Otherwise, the one with the lowest "accessNumberForThisBlock" is the least recently used one
+(No two blocks will have the same value for "accessNumberForThisBlock" unless their value is
+ both zero)
+
+
+SUMMARY:
+
+Add to cache object:
+-int variables B, W, and S
+-Method to determine Set
+
+Add to Set object:
+-Method to determine matching address
+-Method to determine least recently used block using above logic
+
+Add to Block object:
+-Boolean dirty
+-Boolean to indicate whether or not it's mapped to an address
+-int to represent address it's mapped to
