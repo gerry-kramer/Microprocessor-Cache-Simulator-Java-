@@ -34,7 +34,7 @@ java Cache_Simulate <filename>.mc blockSizeInWords numberOfSets blocksPerSet
 - `machineCode.mc` – Sample machine code file for testing
 - `.asm files` – Original assembly test cases (currently not usable without the original assembler)
 
-## Limitations / Disclaimer
+# !!! Limitations / Disclaimer !!!
 
 This project was created based around a custom architecture used specifically for this class (LC3100). Unfortunately, the assembler that the professor provided to convert the assembly instructions into this proprietary machine code is lost. Included in this project is a sample four-line .mc file to test the functionality of this program as well as all the .asm test case files I submitted alongside the project. What remains of this project is mainly here to demonstrate my understanding of cache memory concepts and my ability to implement a functioning microprocessor simulation based on custom specifications, even though the original assembly-to-machine code pipeline is no longer available.
 
