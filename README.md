@@ -38,6 +38,10 @@ java Cache_Simulate <filename>.mc blockSizeInWords numberOfSets blocksPerSet
 
 This project was created based around a custom architecture used specifically for this class (LC3100). Unfortunately, the assembler that the professor provided to convert the assembly instructions into this proprietary machine code is lost. Included in this project is a sample four-line .mc file to test the functionality of this program as well as all the .asm test case files I submitted alongside the project. What remains of this project is mainly here to demonstrate my understanding of cache memory concepts and my ability to implement a functioning microprocessor simulation based on custom specifications, even though the original assembly-to-machine code pipeline is no longer available.
 
+### Update 2025/08/14 21:31
+
+The .c file for the assembler that once was lost has now been located and added to the repository. I will update the usage for the project in the near future.
+
 ## Note on Repository
 
 This repository was imported from one of my personal backup locations. As such, it contains no version control or commit logs. All code present in this repository is either my own original work or allowed starter code as provided by the professor.
